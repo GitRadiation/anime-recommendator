@@ -1,0 +1,124 @@
+# Definición de servicios para Docker Compose
+services:
+    postgres:
+        # Se utiliza la imagen oficial de PostgreSQL mantenida por Bitnami, versión última disponible
+        container_name: postgres
+        image: bitnami/postgresql:latest
+        
+        # Variables de entorno para configurar la base de datos:
+        # - POSTGRESQL_USERNAME: usuario administrador de la BD, configurable externamente o por defecto 'postgres'
+        # - POSTGRESQL_PASSWORD: contraseña para el usuario administrador, configurable o por defecto 'postgres'
+        # - POSTGRESQL_DATABASE: nombre de la base de datos que se crea inicialmente, por defecto 'mydatabase'
+        # - POSTGRESQL_PORT_NUMBER: puerto en el que el servicio escucha, por defecto 5432
+        environment:
+            - POSTGRESQL_USERNAME=${DB_USER:-postgres}
+            - POSTGRESQL_PASSWORD=${DB_PASS:-postgres}
+            - POSTGRESQL_DATABASE=${DB_NAME:-mydatabase}
+            - POSTGRESQL_PORT_NUMBER=${DB_PORT:-5432}
+
+        # Volúmenes para persistencia y configuración:
+        # - 'postgres-data' guarda los datos para evitar pérdidas al reiniciar el contenedor
+        # - Se monta el archivo local 'init.sql' dentro de la carpeta especial 
+        #   '/docker-entrypoint-initdb.d/' para que PostgreSQL lo ejecute automáticamente 
+        #   al iniciar el contenedor por primera vez, permitiendo crear tablas, esquemas o insertar datos
+        volumes:
+            - postgres-data:/bitnami/postgresql
+            - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+        # Mapeo de puertos para exponer el servicio PostgreSQL fuera del contenedor
+        ports:
+            - "5432:5432"
+
+        # Se conecta a la red compartida 'shared_net' para permitir comunicación con otros servicios
+        networks:
+            - shared_net
+
+
+    pgadmin:
+        container_name: pgadmin
+        # Imagen oficial de pgAdmin 4 para administrar visualmente bases PostgreSQL
+        image: dpage/pgadmin4:latest
+        
+        # Variables para configurar el usuario y contraseña por defecto de pgAdmin
+        environment:
+            - PGADMIN_DEFAULT_EMAIL=admin@example.com
+            - PGADMIN_DEFAULT_PASSWORD=admin
+
+        # Volumen para persistir configuraciones y sesiones de pgAdmin
+        volumes:
+            - pgadmin-data:/var/lib/pgadmin
+        
+        # Puerto 8080 del host mapeado al puerto 80 del contenedor para acceder vía navegador web
+        ports:
+            - "8080:80"
+        
+        # Conexión a la misma red compartida para permitir comunicación con PostgreSQL
+        networks:
+            - shared_net
+
+
+    # Servicio para el cron job diario bbdd_maker_job
+    bbdd_maker_job:
+        build:
+            context: .
+            dockerfile: Dockerfile.bbdd_maker
+        image: bbdd_maker_job
+        container_name: bbdd_maker_job
+        restart: unless-stopped
+        volumes:
+            - bbdd_maker-cache:/.cache
+        networks:
+            - shared_net
+
+
+    # Servicio para el backend con uvicorn (FastAPI)
+    uvicorn_server:
+        build:
+            context: .
+            dockerfile: Dockerfile.uvicorn_server
+        image: uvicorn_server
+        container_name: uvicorn_server
+        ports:
+            - "8000:8000"
+        depends_on:
+            - postgres
+        restart: unless-stopped
+        volumes:
+            - uvicorn-cache:/.cache
+        networks:
+            - shared_net
+
+
+    # Servicio para la aplicación Flet en modo web
+    flet_runner:
+        build:
+            context: .
+            dockerfile: Dockerfile.flet_runner
+        image: flet_runner
+        container_name: flet_runner
+        ports:
+            - "8501:8501"
+        restart: unless-stopped
+        volumes:
+            - flet-cache:/.cache
+        networks:
+            - shared_net
+
+
+# Volúmenes declarados para almacenar datos persistentes
+volumes:
+    bbdd_maker-cache:
+        driver: local
+    uvicorn-cache:
+        driver: local
+    flet-cache:
+        driver: local
+    postgres-data:
+        driver: local
+    pgadmin-data:
+        driver: local
+
+# Red externa para conectar todos los servicios y facilitar la comunicación
+networks:
+    shared_net:
+        external: true
