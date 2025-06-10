@@ -14,8 +14,8 @@ COPY .env ./
 COPY genetic_rule_miner/ /genetic_rule_miner/
 
 # Crear scripts de ejecución
-RUN echo '#!/bin/bash\npython /genetic_rule_miner/bbdd_maker/main.py' > /run_bbdd_maker.sh && chmod +x /run_bbdd_maker.sh
-RUN echo '#!/bin/bash\npython /genetic_rule_miner/main.py' > /run_main_job.sh && chmod +x /run_main_job.sh
+RUN echo '#!/bin/bash\npython -m genetic_rule_miner.bbdd_maker.main' > /run_bbdd_maker.sh && chmod +x /run_bbdd_maker.sh
+RUN echo '#!/bin/bash\npython -m genetic_rule_miner.main' > /run_main_job.sh && chmod +x /run_main_job.sh
 
 # Copiar crontab
 COPY cronjobs /etc/cron.d/genetic_jobs
