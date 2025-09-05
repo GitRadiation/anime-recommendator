@@ -2,6 +2,27 @@ import flet as ft
 
 
 def top_app_bar(page, translations):
+    """
+    Create a top application bar for Flet applications.
+
+    The bar includes:
+    - A theme toggle button (dark/light mode).
+    - Window control buttons (minimize, maximize/restore, close) for desktop apps.
+    - A localized title based on the current session language.
+
+    Args:
+        page (ft.Page): The Flet page object representing the application window.
+        translations (dict): Dictionary containing translation strings for
+            supported languages, structured as:
+            {
+                "en": {"title": "...", "theme": "...", "minimize": "...", "maximize": "...", "close": "..."},
+                "es": {...},
+                ...
+            }
+
+    Returns:
+        ft.Container: A Flet container representing the top application bar.
+    """
     lang = page.session.get("lang") or "en"
 
     t = translations.get(lang, translations["en"])

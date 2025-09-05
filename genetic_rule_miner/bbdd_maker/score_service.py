@@ -18,7 +18,25 @@ logger = logging.getLogger(__name__)
 
 
 class ScoreService:
+    """
+    Service class for scraping and processing MyAnimeList user scores.
+
+    Attributes:
+        config (APIConfig): Configuration for requests, retries, and delays.
+        status_code (int): MAL status code to filter completed anime.
+        batch_size (int): Number of users to process per batch.
+        min_delay (int): Minimum delay between batches (seconds).
+        max_delay (int): Maximum delay between batches (seconds).
+    """
+
     def __init__(self, config: APIConfig = APIConfig()):
+        """
+        Initialize the ScoreService with default or custom configuration.
+
+        Args:
+            config (APIConfig, optional): Configuration object for retries,
+                timeout, and request delays. Defaults to APIConfig().
+        """
         self.config = config
 
         # Scraping configuration
@@ -29,7 +47,15 @@ class ScoreService:
         logger.info("ScoreService initialized with default configuration.")
 
     def _process_batch(self, users_batch: List[dict]) -> List[list]:
-        """Processes a batch of users with error handling"""
+        """
+        Process a batch of users and retrieve their scores.
+
+        Args:
+            users_batch (List[dict]): List of user dictionaries with 'username' and 'mal_id'.
+
+        Returns:
+            List[list]: List of score records for the batch.
+        """
         logger.info(f"Processing batch of {len(users_batch)} users.")
         batch_data = []
         for user in users_batch:
@@ -51,7 +77,16 @@ class ScoreService:
     def _scrape_user_scores(
         self, username: str, user_id: int
     ) -> Optional[List[list]]:
-        """Main scraping logic with retries and dual table structure"""
+        """
+        Scrape scores for a user with retry logic and support for modern and legacy tables.
+
+        Args:
+            username (str): MyAnimeList username.
+            user_id (int): MyAnimeList user ID.
+
+        Returns:
+            Optional[List[list]]: List of [user_id, username, anime_id, anime_title, score] records.
+        """
         logger.debug(f"Starting scraping for user: {username}.")
         for attempt in range(self.config.max_retries):
             try:
@@ -91,7 +126,17 @@ class ScoreService:
         return None
 
     def _parse_modern_table(self, soup, user_id, username):
-        """Handles modern table with data-items"""
+        """
+        Parse modern MyAnimeList table with 'data-items'.
+
+        Args:
+            soup (BeautifulSoup): Parsed HTML of the user's animelist.
+            user_id (int): MyAnimeList user ID.
+            username (str): MyAnimeList username.
+
+        Returns:
+            Optional[List[list]]: Parsed score records or None.
+        """
         logger.debug(f"Attempting to parse modern table for {username}.")
         if table := soup.find("table", {"data-items": True}):
             try:
@@ -115,7 +160,17 @@ class ScoreService:
         return None
 
     def _parse_legacy_tables(self, soup, user_id, username):
-        """Handles the old table structure"""
+        """
+        Parse legacy MyAnimeList tables (traditional HTML structure).
+
+        Args:
+            soup (BeautifulSoup): Parsed HTML of the user's animelist.
+            user_id (int): MyAnimeList user ID.
+            username (str): MyAnimeList username.
+
+        Returns:
+            Optional[List[list]]: Parsed score records or None.
+        """
         logger.debug(f"Attempting to parse legacy tables for {username}.")
         scores = []
         for table in soup.find_all(
@@ -146,13 +201,29 @@ class ScoreService:
         return scores if scores else None
 
     def _extract_anime_data(self, cell):
-        """Extracts anime ID and title from a cell"""
+        """
+        Extract anime ID and title from a table cell.
+
+        Args:
+            cell (bs4.element.Tag): Table cell containing anime information.
+
+        Returns:
+            Optional[tuple]: (anime_id, anime_title) or None.
+        """
         if link := cell.find("a", class_="animetitle"):
             return (link["href"].split("/")[2], link.find("span").text.strip())
         return None
 
     def _extract_score_data(self, cell):
-        """Extracts the score from a cell"""
+        """
+        Extract the score from a table cell.
+
+        Args:
+            cell (bs4.element.Tag): Table cell containing the score.
+
+        Returns:
+            Optional[int]: Score value or None if unavailable.
+        """
         if score_label := cell.find("span", class_="score-label"):
             return (
                 int(score_label.text.strip())
@@ -162,7 +233,15 @@ class ScoreService:
         return None
 
     def get_scores(self, users_buffer: BytesIO) -> BytesIO:
-        """Generates a CSV of scores by processing batches"""
+        """
+        Generate a CSV file of user scores by processing batches.
+
+        Args:
+            users_buffer (BytesIO): CSV buffer containing users with 'username' and 'mal_id'.
+
+        Returns:
+            BytesIO: CSV data with columns: User ID, Username, Anime ID, Anime Title, Score.
+        """
         logger.info("Starting user processing to generate CSV.")
         users_df = pd.read_csv(users_buffer)
         buffer = StringIO()
@@ -199,7 +278,17 @@ class ScoreService:
     def get_user_anime_score(
         self, username: str, user_id: int, anime_id: int
     ) -> Optional[int]:
-        """Obtiene el score de un usuario para un anime específico."""
+        """
+        Retrieve the score a user gave to a specific anime.
+
+        Args:
+            username (str): MyAnimeList username.
+            user_id (int): MyAnimeList user ID.
+            anime_id (int): Anime ID.
+
+        Returns:
+            Optional[int]: Score if found, otherwise None.
+        """
         scores = self._scrape_user_scores(username, user_id)
         if scores:
             for row in scores:
@@ -208,5 +297,14 @@ class ScoreService:
         return None
 
     def get_user_scores(self, username: str, user_id: int) -> Optional[list]:
-        """Obtiene todos los scores de un usuario."""
+        """
+        Retrieve all anime scores for a user.
+
+        Args:
+            username (str): MyAnimeList username.
+            user_id (int): MyAnimeList user ID.
+
+        Returns:
+            Optional[list]: List of score records or None if unavailable.
+        """
         return self._scrape_user_scores(username, user_id)

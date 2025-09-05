@@ -1,4 +1,10 @@
 """Main execution pipeline for genetic rule mining."""
+"""Main execution pipeline for genetic rule mining.
+
+This script coordinates data loading, preprocessing, rule cleanup, and
+genetic algorithm execution to discover and persist association rules
+for anime recommendation. It supports parallel execution across targets.
+"""
 
 import argparse
 import ast
@@ -20,6 +26,17 @@ logger = LogManager.get_logger(__name__)
 
 
 def convert_text_to_list_column(df: pd.DataFrame, column_name: str) -> None:
+   """
+    Convert a DataFrame column containing list-like strings into actual Python lists.
+
+    If the cell contains a valid list string (e.g., '["a", "b"]'), it will be
+    parsed into a list. If it contains a single string, it will be wrapped into
+    a list. Invalid or malformed values are replaced with empty lists.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to process.
+        column_name (str): Name of the column to convert.
+    """  
     """
     Convierte una columna que contiene strings representando listas
     en una lista real de Python. Si el valor no es una lista válida,
@@ -59,6 +76,19 @@ def remove_obsolete_rules_for_target(
     user_details: pd.DataFrame,
     db_config: DBConfig,
 ) -> None:
+    """
+    Remove obsolete rules for a given target anime.
+
+    Rules are deleted if the target no longer exists in the dataset, or if
+    their fitness/support is below strict thresholds. This ensures the rule
+    database remains consistent and up to date.
+
+    Args:
+        target_id (int): Anime ID for which to clean rules.
+        merged_data (pd.DataFrame): Dataset containing user and anime data.
+        user_details (pd.DataFrame): User details dataset.
+        db_config (DBConfig): Database configuration object.
+    """
     BATCH_SIZE = 500
     db_manager = DatabaseManager(config=db_config)
     to_delete = []
@@ -192,6 +222,26 @@ if __name__ == "__main__":
         random_seed,
         max_stagnation,
     ):
+          """
+    Process a single target anime with the genetic algorithm.
+
+    Evolves rules for the given target ID using specified GA hyperparameters,
+    and saves valid rules to the database.
+
+    Args:
+        tid (int): Target anime ID.
+        merged_data (pd.DataFrame): Preprocessed dataset.
+        user_details_columns (list[str]): User-related feature column names.
+        db_config (DBConfig): Database configuration.
+        pop_size (int): Initial population size.
+        generations (int): Number of generations to evolve.
+        mutation_rate (float): Mutation probability.
+        random_seed (int, optional): Random seed for reproducibility.
+        max_stagnation (int): Maximum generations without improvement.
+
+    Returns:
+        tuple: (target_id, success_flag, error_message_if_any)
+    """
         db_manager = DatabaseManager(config=db_config)
         try:
             filtered_data = merged_data[merged_data["anime_id"] == tid].copy()
@@ -222,6 +272,16 @@ if __name__ == "__main__":
             return (tid, False, str(e))
 
     def main() -> None:
+        """ 
+    Execute the full genetic rule mining pipeline.
+
+    Steps:
+        1. Load and preprocess user, anime, and score data.
+        2. Merge datasets and clean invalid or unused columns.
+        3. Remove obsolete rules from the database.
+        4. Run the genetic algorithm for targets without rules.
+        5. Persist discovered rules to the database.
+    """
         """Execute the complete rule mining pipeline using sequential processing (no joblib)."""
         try:
             logger.info("Starting rule mining pipeline with custom parameters")

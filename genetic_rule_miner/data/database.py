@@ -24,8 +24,13 @@ RuleWithID = namedtuple("RuleWithID", ["rule_id", "rule_obj"])
 
 
 class DatabaseManager:
-    """Singleton Database Manager using SQLAlchemy for PostgreSQL."""
+    """
+    Singleton class for managing PostgreSQL database operations.
 
+    Attributes:
+        config (DBConfig): Database configuration settings.
+        _engine (Engine, optional): SQLAlchemy engine instance.
+    """
     _instance = None
 
     _engine: Optional[Engine] = None
@@ -33,12 +38,27 @@ class DatabaseManager:
     def __new__(
         cls, config: Optional[DBConfig] = DBConfig()
     ) -> "DatabaseManager":
+        """
+        Implement singleton pattern.
+
+        Args:
+            config (DBConfig, optional): Configuration for database connection.
+
+        Returns:
+            DatabaseManager: Single instance of the class.
+        """
         if cls._instance is None:
             cls._instance = super(DatabaseManager, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
     def __init__(self, config: Optional[DBConfig] = DBConfig()) -> None:
+        """
+        Initialize the database manager.
+
+        Args:
+            config (DBConfig, optional): Configuration for database connection.
+        """
         if self._initialized:
             return
         self.config = config
@@ -53,6 +73,15 @@ class DatabaseManager:
 
     @contextmanager
     def connection(self) -> Generator[Connection, None, None]:
+        """
+        Context manager for database connections.
+
+        Yields:
+            Connection: SQLAlchemy database connection.
+
+        Raises:
+            DatabaseError: If the engine is not initialized or connection fails.
+        """
         connection = None
         try:
             if self._engine:
@@ -72,6 +101,8 @@ class DatabaseManager:
         self._init_sqlalchemy_engine()
 
     def _init_sqlalchemy_engine(self) -> None:
+        """Set up the SQLAlchemy engine based on DBConfig."""
+
         try:
             if (
                 self.config
@@ -105,6 +136,19 @@ class DatabaseManager:
         conflict_action,
         update_clause=None,
     ) -> str:
+        """
+        Construct SQL insert statement with optional conflict handling.
+
+        Args:
+            table (str): Table name.
+            columns (list[str]): Column names.
+            conflict_columns (list[str]): Columns to check for conflict.
+            conflict_action (str): Action to take on conflict ("DO UPDATE", "DO NOTHING").
+            update_clause (str, optional): Custom update clause for conflicts.
+
+        Returns:
+            str: SQL statement.
+        """
         placeholders = ", ".join([f":{col}" for col in columns])
 
         if conflict_columns:
@@ -142,6 +186,18 @@ class DatabaseManager:
         table: str,
         conflict_action="DO UPDATE",
     ) -> bool:
+        """
+        Bulk insert data from a CSV buffer into a PostgreSQL table.
+
+        Args:
+            conn (Connection): Active database connection.
+            buffer (StringIO): CSV data buffer.
+            table (str): Target table name.
+            conflict_action (str): Conflict handling strategy.
+
+        Returns:
+            bool: True if data loaded, False otherwise.
+        """
         def to_pg_array(arr):
             def escape_element(el):
                 el = str(el).replace("\\", "\\\\").replace('"', '\\"')
@@ -197,6 +253,15 @@ class DatabaseManager:
             raise
 
     def _get_conflict_columns(self, table: str) -> list:
+        """
+        Get columns to check for conflict based on table name.
+
+        Args:
+            table (str): Table name.
+
+        Returns:
+            list: List of conflict columns.
+        """
         if table == "user_score":
             return ["user_id", "anime_id"]
         elif table == "anime_dataset":
@@ -210,9 +275,14 @@ class DatabaseManager:
         self, table: str = "user_details"
     ) -> BytesIO:
         """
-        Export mal_id, username y user_url desde la tabla indicada a un buffer CSV en memoria.
+        Export user details to a CSV buffer.
+
+        Args:
+            table (str): Source table name.
+
+        Returns:
+            BytesIO: CSV buffer containing mal_id, username, and user_url.
         """
-        # Ajusta los nombres de columnas según tu tabla real
         columns = ["mal_id", "username"]
         query = f"SELECT {', '.join(columns)} FROM {table}"
 
@@ -233,18 +303,7 @@ class DatabaseManager:
         return BytesIO(buffer.getvalue().encode("utf-8"))
 
     def get_anime_ids_without_rules(self) -> Optional[list[int]]:
-        # Consulta original: anime_ids sin reglas
-        query_no_rules = """
-            WITH rules_exist AS (
-                SELECT EXISTS (SELECT 1 FROM rules) AS has_rules
-            )
-            SELECT DISTINCT a.anime_id
-            FROM anime_dataset a
-            CROSS JOIN rules_exist
-            LEFT JOIN rules r ON CAST(r.target_value AS INTEGER) = a.anime_id
-            WHERE (rules_exist.has_rules = FALSE AND r.rule_id IS NULL)
-            OR rules_exist.has_rules = TRUE
-        """
+
         # Nueva consulta: reglas cuyo target_value tenga <= 250 reglas
         query_rules_targets = """
             SELECT r.rule_id, r.target_value
@@ -257,18 +316,14 @@ class DatabaseManager:
             ) AS t ON r.target_value = t.target_value;
         """
         with self.connection() as conn:
-            # IDs de anime_dataset
-            result1 = conn.execute(text(query_no_rules))
-            anime_ids = {row["anime_id"] for row in result1.mappings()}
-
             # IDs de target_value en rules
-            result2 = conn.execute(text(query_rules_targets))
-            rule_targets = {row["target_value"] for row in result2.mappings()}
+            result = conn.execute(text(query_rules_targets))
+            # Usar set comprehension directamente para eliminar duplicados
+            rule_targets = {row["target_value"] for row in result.mappings()}
 
-            # Unión sin repetidos
-            all_ids = list(anime_ids.union(rule_targets))
+            # Retornar lista vacía si no hay elementos
+            return list(rule_targets)
 
-            return all_ids or []
 
     def save_rules(self, rules: list[Rule], table: str = "rules") -> None:
         """
@@ -477,11 +532,12 @@ class DatabaseManager:
 
     def get_rules_series_by_json(self, json_objeto: dict):
         """
-        Ejecuta la función SQL get_rules_series pasando el JSON completo obtenido de la API.
+        Executes the SQL function get_rules_series by passing the full JSON obtained from the API.
 
-        :param json_objeto: Diccionario completo del JSON recibido desde la API.
-        :return: Lista de diccionarios con los resultados.
+        :param json_object: Complete dictionary of the JSON received from the API.
+        :return: List of dictionaries with the results.
         """
+
 
         def clean_nans(obj):
             if isinstance(obj, dict):

@@ -13,6 +13,20 @@ logger = logging.getLogger(__name__)
 
 
 def main(page: ft.Page):
+    """
+    Main entrypoint for the Flet application.
+
+    Configures the application window, initializes the theme, sets up
+    translations, and builds the main user interface. The interface allows
+    users to enter their MyAnimeList username and fetch personalized anime
+    recommendations from a backend API, with a fallback to the Jikan API.
+
+    Args:
+        page (ft.Page): The Flet Page object representing the app window.
+
+    Returns:
+        None
+    """
     page.window.min_width = 600
     page.window.min_height = 950
     page.window.height = page.window.min_height
@@ -137,6 +151,22 @@ def main(page: ft.Page):
         series_data_list.controls.append(no_data_container)
 
     def fetch_profile(e):
+        """
+    Fetch and display anime recommendations for a given MyAnimeList username.
+
+    This function retrieves recommendations from a backend API using the
+    username entered in the text field. If the backend returns no data,
+    a fallback message is displayed. Recommendations are shown as styled
+    cards with links to MyAnimeList. Errors (timeouts, network issues,
+    HTTP errors) are handled gracefully and displayed to the user.
+
+    Args:
+        e (ft.ControlEvent): The event triggered by the button click or
+            text field submission.
+
+    Returns:
+        None
+    """
         load_dotenv(".local.env")
         api_url = os.getenv("API_URL", "http://uvicorn_server:8000")
         username = (username_field.value or "").strip()

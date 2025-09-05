@@ -27,6 +27,14 @@ logging.basicConfig(level=logging.INFO)
 
 
 class RuleResult(BaseModel):
+    """
+    Represents the result of an applied recommendation rule.
+
+    Attributes:
+        anime_id (int): Unique identifier of the anime.
+        name (str): Name of the anime (alias 'nombre' in API responses).
+        cantidad (int): Quantity or score associated with the rule result.
+    """
     anime_id: int
     name: str = Field(alias="nombre")
     cantidad: int
@@ -59,18 +67,54 @@ app = FastAPI(title="Anime Dataset API", version="1.0")
 
 
 def cache_key_user(username: str):
+    """
+    Generate a cache key for a user's profile.
+
+    Args:
+        username (str): The username to generate the key for.
+
+    Returns:
+        str: Cache key for the user profile.
+    """
     return f"user_profile:{username.lower()}"
 
 
 def cache_key_anime_ids(username: str):
+    """
+    Generate a cache key for a user's relevant anime IDs.
+
+    Args:
+        username (str): The username to generate the key for.
+
+    Returns:
+        str: Cache key for relevant anime IDs.
+    """
     return f"anime_ids:{username.lower()}"
 
 
 def cache_key_anime_data(anime_ids: Set[int]):
+    """
+    Generate a cache key for a set of anime data.
+
+    Args:
+        anime_ids (Set[int]): Set of anime IDs.
+
+    Returns:
+        str: Cache key for the anime data.
+    """
     return f"animes_data:{'-'.join(map(str, sorted(anime_ids)))}"
 
 
 def cache_key_anime_detail(anime_id: int):
+    """
+    Generate a cache key for a single anime detail.
+
+    Args:
+        anime_id (int): The anime ID.
+
+    Returns:
+        str: Cache key for the anime detail.
+    """
     return f"anime_detail:{anime_id}"
 
 
@@ -78,6 +122,21 @@ def cache_key_anime_detail(anime_id: int):
 
 
 def get_user_profile_cached(username: str) -> Dict[str, Any]:
+    """
+    Retrieve a user's profile with caching.
+
+    If the profile is available in cache, return it. Otherwise, fetch it
+    from the details service, preprocess it, cache it, and return it.
+
+    Args:
+        username (str): The username whose profile is retrieved.
+
+    Returns:
+        Dict[str, Any]: Processed user profile.
+
+    Raises:
+        HTTPException: If profile data is invalid or not found.
+    """
     key = cache_key_user(username)
     if key in user_cache:
         cached_value = user_cache[key]
@@ -132,6 +191,20 @@ def get_user_profile_cached(username: str) -> Dict[str, Any]:
 
 
 def get_relevant_anime_ids_cached(username: str, user_id: int) -> Set[int]:
+    """
+    Retrieve relevant anime IDs for a user with caching.
+
+    The function gathers IDs from scores, favorites, updates,
+    history, and reviews. Medium-rated scores are sampled to avoid
+    overrepresentation.
+
+    Args:
+        username (str): Username whose anime IDs are retrieved.
+        user_id (int): Unique user ID from profile.
+
+    Returns:
+        Set[int]: A set of relevant anime IDs.
+    """
     key = cache_key_anime_ids(username)
 
     cached_value = user_cache.get(key)
@@ -242,6 +315,19 @@ def get_relevant_anime_ids_cached(username: str, user_id: int) -> Set[int]:
 
 
 def get_anime_data_cached(anime_ids: Set[int]) -> pd.DataFrame:
+    """
+    Retrieve anime data for a set of IDs with caching.
+
+    If cached data is available, return it. Otherwise, fetch anime
+    details from the anime service, preprocess them, cache the
+    result, and return as a DataFrame.
+
+    Args:
+        anime_ids (Set[int]): Set of anime IDs.
+
+    Returns:
+        pd.DataFrame: Processed anime data.
+    """
     key = cache_key_anime_data(anime_ids)
 
     cached_value = anime_cache.get(key)
@@ -285,11 +371,29 @@ def get_anime_data_cached(anime_ids: Set[int]) -> pd.DataFrame:
 
 @app.get("/users/{username}/profile")
 def api_get_user_profile(username: str):
+    """
+    API endpoint: Get user profile.
+
+    Args:
+        username (str): The MyAnimeList username.
+
+    Returns:
+        Dict[str, Any]: User profile data.
+    """
     return get_user_profile_cached(username)
 
 
 @app.get("/users/{username}/anime_ids")
 def api_get_user_anime_ids(username: str):
+    """
+    API endpoint: Get relevant anime IDs for a user.
+
+    Args:
+        username (str): The MyAnimeList username.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing anime IDs.
+    """
     profile = get_user_profile_cached(username)
     user_id = profile.get("mal_id") or profile.get("user_id") or 0
     anime_ids = get_relevant_anime_ids_cached(username, int(user_id))
@@ -298,6 +402,15 @@ def api_get_user_anime_ids(username: str):
 
 @app.get("/users/{username}/anime_profile")
 def api_get_user_anime_profile(username: str):
+    """
+    API endpoint: Get user profile and anime data.
+
+    Args:
+        username (str): The MyAnimeList username.
+
+    Returns:
+        Dict[str, Any]: User profile, processed anime data, and count.
+    """
     profile = get_user_profile_cached(username)
     user_id = profile.get("mal_id") or profile.get("user_id") or 0
     anime_ids = get_relevant_anime_ids_cached(username, int(user_id))
@@ -311,6 +424,15 @@ def api_get_user_anime_profile(username: str):
 
 @app.get("/anime/{anime_id}")
 def api_get_anime_detail(anime_id: int):
+    """
+    API endpoint: Get detailed information about a specific anime.
+
+    Args:
+        anime_id (int): The anime ID.
+
+    Returns:
+        Dict[str, Any]: Anime detail.
+    """
     key = cache_key_anime_detail(anime_id)
     if key in anime_cache:
         anime_df = anime_cache[key]
@@ -335,6 +457,15 @@ def api_get_anime_detail(anime_id: int):
 
 @app.get("/users/{username}/full_profile")
 def api_get_user_full_profile(username: str) -> Dict[str, Any]:
+    """
+    API endpoint: Get complete user profile with anime list.
+
+    Args:
+        username (str): The MyAnimeList username.
+
+    Returns:
+        Dict[str, Any]: User profile and anime list with NaNs cleaned.
+    """
     profile = get_user_profile_cached(username)
     user_id = profile.get("mal_id") or profile.get("user_id") or 0
     anime_ids = get_relevant_anime_ids_cached(username, int(user_id))
@@ -362,6 +493,18 @@ def api_get_user_full_profile(username: str) -> Dict[str, Any]:
 
 @app.get("/users/{username}/recommendation")
 def api_get_user_recommendations(username: str):
+    """
+    API endpoint: Get anime recommendations for a user.
+
+    Uses cached results if available; otherwise, computes recommendations
+    by applying rules to the user's full profile.
+
+    Args:
+        username (str): The MyAnimeList username.
+
+    Returns:
+        List[RuleResult]: List of recommended anime with details.
+    """
     cache_key = f"user_recommendation:{username}"
     cached_result = user_cache.get(cache_key)
     if cached_result is not None:
@@ -400,4 +543,10 @@ def api_get_user_recommendations(username: str):
 @app.get("/health")
 @app.get("/")
 def health_check():
+    """
+    Health check endpoint.
+
+    Returns:
+        Dict[str, str]: Status of the API.
+    """
     return {"status": "ok"}

@@ -14,14 +14,35 @@ logger = logging.getLogger(__name__)
 
 
 class UserService:
+    """
+    Service class for interacting with MyAnimeList users via the Jikan API.
+
+    Attributes:
+        config (APIConfig): Configuration for API requests, retries, and delays.
+    """
     def __init__(self, config: APIConfig = APIConfig()):
+        """
+        Initialize the UserService with optional API configuration.
+
+        Args:
+            config (APIConfig, optional): Configuration object with timeout,
+                retry count, and request delay. Defaults to APIConfig().
+        """
         self.config = config
         logger.info(
             "UserService initialized with configuration: %s", self.config
         )
 
     def _request(self, endpoint: str) -> dict:
-        """Generic GET request with retries and error handling."""
+        """
+        Perform a generic GET request with retries and error handling.
+
+        Args:
+            endpoint (str): API endpoint to query.
+
+        Returns:
+            dict: JSON response if successful, otherwise an empty dict.
+        """
         url = f"https://api.jikan.moe/v4{endpoint}"
         for attempt in range(self.config.max_retries):
             try:
@@ -50,7 +71,15 @@ class UserService:
         return {}
 
     def _fetch_with_retry(self, user_id: int) -> Optional[dict]:
-        """Retry logic with error handling"""
+        """
+        Fetch user data by ID with retry logic and error handling.
+
+        Args:
+            user_id (int): The MyAnimeList user ID to fetch.
+
+        Returns:
+            Optional[dict]: User data if successful, otherwise None.
+        """
         logger.debug("Starting _fetch_with_retry for user_id: %d", user_id)
         for attempt in range(self.config.max_retries):
             try:
@@ -90,7 +119,16 @@ class UserService:
         return None
 
     def generate_userlist(self, start_id: int, end_id: int) -> BytesIO:
-        """Generate a list of users by searching a range of IDs"""
+        """
+        Generate a CSV list of users by searching a range of IDs.
+
+        Args:
+            start_id (int): Starting user ID.
+            end_id (int): Ending user ID.
+
+        Returns:
+            BytesIO: CSV data containing user_id, username, and user_url.
+        """
         logger.info(
             "Starting user list generation for IDs %d to %d",
             start_id,
@@ -151,7 +189,15 @@ class UserService:
         return byte_buffer
 
     def get_users(self, user_ids: List[int]) -> BytesIO:
-        """Existing method to fetch multiple users (compatibility)"""
+        """
+        Fetch multiple users and return as CSV.
+
+        Args:
+            user_ids (List[int]): List of MyAnimeList user IDs.
+
+        Returns:
+            BytesIO: CSV data containing user_id, username, and user_url.
+        """
         logger.info("Starting user retrieval for IDs: %s", user_ids)
         text_buffer = StringIO()
         writer = csv.DictWriter(
@@ -180,14 +226,39 @@ class UserService:
         return byte_buffer
 
     def get_user_by_id(self, user_id: int) -> Optional[dict]:
-        """Obtiene los datos de un usuario por su ID."""
+        """
+        Fetch a single user by ID.
+
+        Args:
+            user_id (int): The MyAnimeList user ID.
+
+        Returns:
+            Optional[dict]: User data if found, otherwise None.
+        """
         return self._fetch_with_retry(user_id)
 
     def get_users_by_ids(self, user_ids: List[int]) -> list:
-        """Obtiene los datos de múltiples usuarios por sus IDs."""
+        """
+        Fetch multiple users by their IDs.
+
+        Args:
+            user_ids (List[int]): List of user IDs.
+
+        Returns:
+            list: List of user data dictionaries (or None for missing users).
+        """
         return [self._fetch_with_retry(uid) for uid in user_ids]
 
     def get_user_id_from_username(self, username: str) -> Optional[int]:
+        """
+        Fetch the MyAnimeList user ID for a given username.
+
+        Args:
+            username (str): The MyAnimeList username.
+
+        Returns:
+            Optional[int]: User ID if found, otherwise None.
+        """
         try:
             response = requests.get(
                 f"https://api.jikan.moe/v4/users/{username}", timeout=10
@@ -203,7 +274,15 @@ class UserService:
         return None
 
     def get_user_id_by_username(self, username: str) -> Optional[int]:
-        """Obtiene los datos de un usuario por su nombre de usuario."""
+        """
+        Fetch the MyAnimeList user ID by username (alias method).
+
+        Args:
+            username (str): The MyAnimeList username.
+
+        Returns:
+            Optional[int]: User ID if found, otherwise None.
+        """
         try:
             response = requests.get(
                 f"https://api.jikan.moe/v4/users/{username}", timeout=10
@@ -219,13 +298,51 @@ class UserService:
         return None
 
     def get_user_favorites(self, username: str) -> dict:
+        """
+        Fetch a user's favorites.
+
+        Args:
+            username (str): The MyAnimeList username.
+
+        Returns:
+            dict: JSON response containing favorites.
+        """
         return self._request(f"/users/{username}/favorites")
 
     def get_user_updates(self, username: str) -> dict:
+        """
+        Fetch a user's updates.
+
+        Args:
+            username (str): The MyAnimeList username.
+
+        Returns:
+            dict: JSON response containing user updates.
+        """
         return self._request(f"/users/{username}/userupdates")
 
     def get_user_history(self, username: str, type: str = "anime") -> dict:
+        """
+        Fetch a user's history for a specific type.
+
+        Args:
+            username (str): The MyAnimeList username.
+            type (str, optional): 'anime' or 'manga'. Defaults to 'anime'.
+
+        Returns:
+            dict: JSON response containing user history.
+        """
         return self._request(f"/users/{username}/history?type={type}")
 
     def get_user_reviews(self, username: str) -> dict:
+        """
+        Fetch a user's reviews.
+
+        Args:
+            username (str): The MyAnimeList username.
+
+        Returns:
+            dict: JSON response containing user reviews.
+        """
+
         return self._request(f"/users/{username}/reviews")

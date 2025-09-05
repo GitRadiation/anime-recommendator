@@ -2,11 +2,20 @@ from flet import Colors, ColorScheme, Page, Theme, ThemeMode
 
 
 def setup_theme(page: Page):
-    page.bgcolor = "#282A36" if page.theme_mode == "dark" else Colors.WHITE
+    """
+    Configure and apply custom themes to the Flet page.
 
+    Sets the background color depending on the current theme mode,
+    applies the light theme as default, and configures both light
+    and dark themes for the application.
+
+    Args:
+        page (Page): The Flet page object to configure.
+
+    Returns:
+        None
     """
-    Configures the theme for the Flet app using the light theme by default.
-    """
+    page.bgcolor = "#282A36" if page.theme_mode == "dark" else Colors.WHITE
     page.theme_mode = ThemeMode.LIGHT
     page.theme = get_light_theme()
     page.dark_theme = get_dark_theme()
@@ -15,7 +24,13 @@ def setup_theme(page: Page):
 
 def get_light_theme() -> Theme:
     """
-    Returns a custom light theme.
+    Define and return a custom light theme.
+
+    The light theme uses a white background, dark text,
+    and purple as the primary/secondary accent color.
+
+    Returns:
+        Theme: A custom Flet Theme object for light mode.
     """
     return Theme(
         color_scheme=ColorScheme(  # type: ignore
@@ -37,7 +52,13 @@ def get_light_theme() -> Theme:
 
 def get_dark_theme() -> Theme:
     """
-    Returns a custom dark theme with improved contrast.
+    Define and return a custom dark theme with improved contrast.
+
+    The dark theme uses a dark background with light text
+    and adjusted surface colors to ensure readability.
+
+    Returns:
+        Theme: A custom Flet Theme object for dark mode.
     """
     return Theme(
         color_scheme=ColorScheme(  # type: ignore
