@@ -68,6 +68,14 @@ class Rule:
         """
         return frozenset((col, op) for col, (op, _) in conds)
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "Rule":
+        return cls(
+            columns=data.get("columns", []),
+            conditions=data.get("conditions", {}),
+            target=data["target"],
+        )
+
     def cond_signature(self):
         """
         Devuelve la firma de la regla como dos frozensets: uno para user_conditions y otro para other_conditions.

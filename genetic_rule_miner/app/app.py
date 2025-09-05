@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-import webbrowser
 
 import flet as ft
 import requests
@@ -196,11 +195,7 @@ def main(page: ft.Page):
                                             max_lines=2,
                                             overflow=ft.TextOverflow.ELLIPSIS,
                                         ),
-                                        ft.Text(
-                                            "Recommended for you",
-                                            size=12,
-                                            color=ft.Colors.ON_SURFACE_VARIANT,
-                                        ),
+                                        recommended_subtitle,
                                     ],
                                     spacing=2,
                                     expand=True,
@@ -211,7 +206,7 @@ def main(page: ft.Page):
                                     icon_size=20,
                                     on_click=(
                                         (
-                                            lambda e, anime_id=anime_id: webbrowser.open(
+                                            lambda e, anime_id=anime_id: page.launch_url(
                                                 f"https://myanimelist.net/anime/{anime_id}"
                                             )
                                         )
@@ -232,7 +227,7 @@ def main(page: ft.Page):
                         bgcolor=(ft.Colors.SURFACE),
                         on_click=(
                             (
-                                lambda e, anime_id=anime_id: webbrowser.open(
+                                lambda e, anime_id=anime_id: page.launch_url(
                                     f"https://myanimelist.net/anime/{anime_id}"
                                 )
                             )
@@ -296,7 +291,11 @@ def main(page: ft.Page):
         weight=ft.FontWeight.W_600,
         color=ft.Colors.ON_SURFACE,
     )
-
+    recommended_subtitle = ft.Text(
+        t["recommended_for_you"],
+        size=12,
+        color=ft.Colors.ON_SURFACE_VARIANT,
+    )
     def update_labels():
         lang = page.session.get("lang")
         t = translations.get(lang or "en", translations["en"])
@@ -304,6 +303,7 @@ def main(page: ft.Page):
         username_field.hint_text = t["hint_username"]
         load_button.text = t["load_profile"]
         recommended_title.value = t["recommended_series"]
+        recommended_subtitle.value = t["recommended_for_you"]
         language_selector.tooltip = t["language"]
         app_bar_container.content = top_app_bar(page, translations)
         page.update()

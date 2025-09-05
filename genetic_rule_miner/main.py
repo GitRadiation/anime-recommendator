@@ -13,6 +13,7 @@ from genetic_rule_miner.data.database import DatabaseManager
 from genetic_rule_miner.data.manager import DataManager
 from genetic_rule_miner.models.genetic import GeneticRuleMiner
 from genetic_rule_miner.utils.logging import LogManager
+from genetic_rule_miner.utils.rule import Rule
 
 LogManager.configure()
 logger = LogManager.get_logger(__name__)
@@ -52,7 +53,6 @@ def convert_text_to_list_column(df: pd.DataFrame, column_name: str) -> None:
 
     df[column_name] = df[column_name].fillna("[]").apply(parse_cell)
 
-
 def remove_obsolete_rules_for_target(
     target_id: int,
     merged_data: pd.DataFrame,
@@ -65,6 +65,7 @@ def remove_obsolete_rules_for_target(
 
     try:
         with db_manager.connection() as conn:
+            # Si el target no existe en los datos actuales, se eliminan todas sus reglas.
             if target_id not in merged_data["anime_id"].values:
                 conn.execute(
                     text("DELETE FROM rules WHERE target_value = :target_id"),
@@ -75,58 +76,71 @@ def remove_obsolete_rules_for_target(
                 )
                 return
 
+            filtered_data = merged_data[merged_data["anime_id"] == target_id].copy()
+
+            for col in ["producers", "genres", "keywords"]:
+                if col in filtered_data.columns:
+                    convert_text_to_list_column(filtered_data, col)
+
+            logger.info(f"Target {target_id}: {len(filtered_data)} filas en dataset")
+
             offset = 0
             while True:
-                # Obtener reglas en lotes
                 rules_with_id = db_manager.get_rules_by_target_value_paginated(
                     target_id, offset=offset, limit=BATCH_SIZE
                 )
                 if not rules_with_id:
-                    break  # ya no quedan reglas
+                    break
 
-                filtered_data = merged_data[
-                    merged_data["anime_id"] == target_id
-                ].copy()
                 miner = GeneticRuleMiner(
                     df=filtered_data,
                     target_column="anime_id",
                     user_cols=user_details.columns.tolist(),
-                    pop_size=1,
+                    db_manager=db_manager,
                 )
 
-                rules = [r.rule_obj for r in rules_with_id]
+                # Convertir reglas válidas
+                rules = [Rule.from_dict(r.rule_obj) for r in rules_with_id if isinstance(r.rule_obj, dict)]
+
+                if not rules:
+                    logger.info(f"No hay reglas válidas para target {target_id} en el batch actual (offset={offset}).")
+                    offset += BATCH_SIZE
+                    continue
+
                 fitness_arr = miner.batch_vectorized_confidence(rules)
                 support_arr = miner.batch_vectorized_support(rules)
+                rule_id_list = [r.rule_id for r in rules_with_id if isinstance(r.rule_obj, dict)]
 
-                rule_id_list = [r.rule_id for r in rules_with_id]
 
                 for idx, rule_id in enumerate(rule_id_list):
                     fitness = fitness_arr[idx]
                     support = support_arr[idx]
-                    if fitness < 1 or support < 0.95:
+                    
+                    # Criterio de eliminación mucho menos estricto
+                    # Solo borra si el fitness es 0 (no se cumple nunca) o el soporte es extremadamente bajo.
+                    # El soporte extremadamente bajo indica que la regla es muy rara o no existe en los datos.
+                    if fitness < 0.001 or support < 0.001:
                         to_delete.append(rule_id)
-                        logger.info(
-                            f"Eliminando regla {rule_id} (fitness: {fitness:.4f}, soporte: {support:.4f})"
+                        logger.debug(
+                            f"Marcando para eliminación regla {rule_id} (fitness: {fitness:.4f}, soporte: {support:.4f})"
                         )
 
-                # Pasar al siguiente lote
                 offset += BATCH_SIZE
+
             if to_delete:
                 conn.execute(
-                    text(
-                        "DELETE FROM rules WHERE rule_id = ANY(:ids::uuid[])"
-                    ),
+                    text("DELETE FROM rules WHERE rule_id = ANY(:ids)"),
                     {"ids": to_delete},
                 )
                 logger.info(
-                    f"Eliminadas {len(to_delete)} reglas obsoletas para target {target_id} (offset {offset})"
+                    f"Eliminadas {len(to_delete)} reglas obsoletas para target {target_id}"
                 )
+
     except Exception as e:
         logger.error(
             f"Fallo al eliminar reglas para target {target_id}: {e}",
             exc_info=True,
         )
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -241,7 +255,10 @@ if __name__ == "__main__":
 
             Parallel(n_jobs=-1, prefer="threads", verbose=10)(
                 delayed(remove_obsolete_rules_for_target)(
-                    int(tid), merged_data, user_details, db_config
+                    int(tid), 
+                    merged_data, 
+                    user_details, 
+                    db_config,
                 )
                 for tid in merged_data["anime_id"].unique()
             )

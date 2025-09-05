@@ -232,56 +232,36 @@ class GeneticRuleMiner:
         return rule
 
     def _create_condition_tuple(self, col: str) -> Condition:
+        """
+        Creates a single, valid condition (column, operator, value) for a given column.
+        Handles both numeric and categorical data types, including pre-processed lists.
+        """
         if col in self._numeric_cols:
             op = self.rng.choice(["<", ">="])
-            value = round(float(self.rng.choice(self._percentiles[col])), 2)
-            return Condition(column=col, operator=op, value=value)
-        else:
-            raw_values = self.df[col].dropna()
-            if raw_values.empty:
-                logger.debug(f"No values found for column '{col}'")
-                return Condition(column=col, operator="==", value="UNKNOWN")
-
-            # Seleccionar aleatoriamente un valor de la columna
-            candidate = self.rng.choice(raw_values)
-
-            # Evaluar si el valor es un array (lista) o texto
-            if isinstance(candidate, list):
-                # Elegir aleatoriamente un elemento del array
-                value = str(self.rng.choice(candidate))
-            elif (
-                isinstance(candidate, str)
-                and (
-                    candidate.strip().startswith("[")
-                    or candidate.strip().startswith("'[")
-                    or candidate.strip().startswith('"[')
-                )
-                and (
-                    candidate.strip().endswith("]")
-                    or candidate.strip().endswith("]'")
-                    or candidate.strip().endswith(']"')
-                )
-            ):
-                # Intentar parsear el string como array usando ast.literal_eval
-                try:
-                    import ast
-
-                    parsed_list = ast.literal_eval(candidate)
-                    if isinstance(parsed_list, list) and parsed_list:
-                        value = str(self.rng.choice(parsed_list))
-                    else:
-                        value = candidate  # fallback si el parseo falla o la lista está vacía
-                except Exception as e:
-                    logger.warning(
-                        f"Error parsing string as array for column '{col}': {e}"
-                    )
-                    value = candidate  # fallback
-            else:
-                value = str(candidate)  # texto simple
-
-            return Condition(
-                column=col, operator=self.rng.choice(["==", "!="]), value=value
+            value = round(
+                float(self.rng.choice(self._percentiles[col])), 2
             )
+            return Condition(column=col, operator=op, value=value)
+        else:  # Categorical columns
+            # Assume data is pre-processed; handle both lists and single values.
+            # Find all unique values in the column, flattening lists if necessary.
+            unique_values = set()
+            for val in self.df[col].dropna():
+                if isinstance(val, list):
+                    unique_values.update(val)
+                else:
+                    unique_values.add(val)
+            
+            if not unique_values:
+                # Handle cases where column has no unique values
+                logger.debug(f"No unique values found for column '{col}'")
+                return Condition(column=col, operator="==", value="UNKNOWN")
+            
+            op = self.rng.choice(["==", "!="])
+            # Select a random value from the unique set
+            value = str(self.rng.choice(list(unique_values)))
+
+            return Condition(column=col, operator=op, value=value)
 
     def _add_condition(
         self, rule: Rule, existing_cols, column_pool, user=False
@@ -921,9 +901,10 @@ class GeneticRuleMiner:
                 offset += page_size
 
             existing_conditions_set = {
-                tuple(sorted(str(cond) for cond in rule.conditions))
-                for rule in all_existing_rules
+                tuple(sorted(str(cond) for cond in r.rule_obj.conditions))
+                for r in all_existing_rules
             }
+
 
             # Solo conservar las reglas que no están en la base de datos
             unique_rules = [
@@ -932,6 +913,7 @@ class GeneticRuleMiner:
                 if tuple(sorted(str(cond) for cond in rule.conditions))
                 not in existing_conditions_set
             ]
+
 
             logger.info(
                 f"[Target {target_id}] {len(unique_rules)} nuevas reglas encontradas (no repetidas)"

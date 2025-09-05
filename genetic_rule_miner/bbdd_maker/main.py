@@ -236,7 +236,7 @@ def main():
 
     def fetch_anime_data():
         logger.info("📡 Retrieving anime data (in parallel)...")
-        anime_start_id = np.random.randint(1, 99800)
+        anime_start_id = np.random.randint(1, 59811)
         anime_end_id = anime_start_id + 199
         anime_buffer = AnimeService(api_config).get_anime_data(
             anime_start_id, anime_end_id
