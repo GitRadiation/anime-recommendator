@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass
 class APIConfig:
-     """
+    """
     Configuration parameters for external API services.
 
     Attributes:
@@ -15,8 +15,6 @@ class APIConfig:
         request_delay (float): Delay between consecutive requests in seconds.
         rate_limit (int): Maximum number of requests allowed per unit time.
     """
-    """Configuration for external API services"""
-
     base_url: str = "https://api.jikan.moe/v4/"
     max_retries: int = 3
     timeout: float = 10.0
@@ -32,7 +30,7 @@ class APIConfig:
 
 @dataclass
 class DBConfig:
-     """
+    """
     Configuration parameters for database connections.
 
     Attributes:
@@ -42,7 +40,6 @@ class DBConfig:
         user (str): Database username.
         password (str): Database password.
     """
-    """Configuration for database connections"""
 
     host: str = os.getenv("DB_HOST", "postgres")
     port: int = int(os.getenv("DB_PORT", 5432))
@@ -51,7 +48,6 @@ class DBConfig:
     password: str = os.getenv("DB_PASS", "postgres")
 
     def __post_init__(self) -> None:
-         """Validate that the port number is within the valid TCP range."""
-        """Validate database configuration."""
+        """Validate that the port number is within the valid TCP range."""
         if self.port <= 0 or self.port > 65535:
             raise ValueError("Invalid port number")

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class DetailsService:
     def __init__(self, config: APIConfig = APIConfig()):
         self.config = config
-    """
+        """
         Initialize the DetailsService with default configuration.
 
         Args:
@@ -31,7 +31,7 @@ class DetailsService:
         logger.info("DetailsService initialized with default configuration.")
 
     def get_user_details(self, usernames: List[str]) -> BytesIO:
-         """
+        """
         Generate a CSV file with detailed user data.
 
         This method fetches details for multiple users, processes them in batches,
@@ -43,7 +43,6 @@ class DetailsService:
         Returns:
             BytesIO: A buffer containing the CSV data.
         """
-        """Generates a CSV with detailed optimized data"""
         logger.info(f"Starting processing for {len(usernames)} users.")
         buffer = StringIO()
         writer = csv.writer(buffer)
@@ -93,7 +92,7 @@ class DetailsService:
         return BytesIO(buffer.getvalue().encode("utf-8"))
 
     def _fetch_user_data(self, username: str) -> Optional[list]:
-         """
+        """
         Fetch user details from the API with retry logic.
 
         Args:
@@ -103,7 +102,6 @@ class DetailsService:
             Optional[list]: A list of user attributes (if found),
                 or None if the user does not exist or all retries fail.
         """
-        """Fetches user data with retries"""
         logger.debug(f"Requesting data for user: {username}")
         for attempt in range(self.max_retries):
             try:
@@ -178,7 +176,6 @@ class DetailsService:
         Args:
             batch_size (int): Number of successfully processed users in the batch.
         """
-        """Handles API rate limits"""
         if batch_size > 0:
             logger.debug(
                 f"Applying a delay of {self.batch_delay}s to respect API rate limits."
@@ -186,7 +183,7 @@ class DetailsService:
             time.sleep(self.batch_delay)
 
     def get_user_detail(self, username: str) -> Optional[list]:
-         """
+        """
         Get details for a single user.
 
         Args:
@@ -195,11 +192,10 @@ class DetailsService:
         Returns:
             Optional[list]: A list of user details, or None if the user is not found.
         """
-        """Obtiene los detalles de un solo usuario."""
         return self._fetch_user_data(username)
 
     def get_users_details(self, usernames: List[str]) -> list:
-       """
+        """
         Get details for multiple users.
 
         Args:
@@ -208,5 +204,4 @@ class DetailsService:
         Returns:
             list: A list of user detail lists. Missing users will appear as None.
         """  
-        """Obtiene los detalles de múltiples usuarios."""
         return [self._fetch_user_data(u) for u in usernames]

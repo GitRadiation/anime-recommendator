@@ -26,7 +26,7 @@ logger = LogManager.get_logger(__name__)
 
 
 def convert_text_to_list_column(df: pd.DataFrame, column_name: str) -> None:
-   """
+    """
     Convert a DataFrame column containing list-like strings into actual Python lists.
 
     If the cell contains a valid list string (e.g., '["a", "b"]'), it will be
@@ -37,11 +37,6 @@ def convert_text_to_list_column(df: pd.DataFrame, column_name: str) -> None:
         df (pd.DataFrame): The DataFrame to process.
         column_name (str): Name of the column to convert.
     """  
-    """
-    Convierte una columna que contiene strings representando listas
-    en una lista real de Python. Si el valor no es una lista válida,
-    la convierte en lista con un solo elemento.
-    """
 
     def parse_cell(x):
         try:
@@ -222,26 +217,26 @@ if __name__ == "__main__":
         random_seed,
         max_stagnation,
     ):
-          """
-    Process a single target anime with the genetic algorithm.
+        """
+        Process a single target anime with the genetic algorithm.
 
-    Evolves rules for the given target ID using specified GA hyperparameters,
-    and saves valid rules to the database.
+        Evolves rules for the given target ID using specified GA hyperparameters,
+        and saves valid rules to the database.
 
-    Args:
-        tid (int): Target anime ID.
-        merged_data (pd.DataFrame): Preprocessed dataset.
-        user_details_columns (list[str]): User-related feature column names.
-        db_config (DBConfig): Database configuration.
-        pop_size (int): Initial population size.
-        generations (int): Number of generations to evolve.
-        mutation_rate (float): Mutation probability.
-        random_seed (int, optional): Random seed for reproducibility.
-        max_stagnation (int): Maximum generations without improvement.
+        Args:
+            tid (int): Target anime ID.
+            merged_data (pd.DataFrame): Preprocessed dataset.
+            user_details_columns (list[str]): User-related feature column names.
+            db_config (DBConfig): Database configuration.
+            pop_size (int): Initial population size.
+            generations (int): Number of generations to evolve.
+            mutation_rate (float): Mutation probability.
+            random_seed (int, optional): Random seed for reproducibility.
+            max_stagnation (int): Maximum generations without improvement.
 
-    Returns:
-        tuple: (target_id, success_flag, error_message_if_any)
-    """
+        Returns:
+            tuple: (target_id, success_flag, error_message_if_any)
+        """
         db_manager = DatabaseManager(config=db_config)
         try:
             filtered_data = merged_data[merged_data["anime_id"] == tid].copy()
