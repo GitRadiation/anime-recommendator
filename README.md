@@ -53,7 +53,6 @@ This flexibility enables iterative development and smooth deployment across vari
 
 3. Build and start the containers using Podman Compose:
     ```
-    podman network create shared_net
     podman-compose -f compose.yml up -d
     ```
 
